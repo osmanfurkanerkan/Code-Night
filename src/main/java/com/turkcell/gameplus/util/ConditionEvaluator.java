@@ -1,20 +1,24 @@
 package com.turkcell.gameplus.util;
 
 import com.turkcell.gameplus.model.UserState;
+import com.turkcell.gameplus.service.strategy.ConditionStrategy;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.lang.reflect.Field;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class ConditionEvaluator {
 
-    private static final Pattern CONDITION_PATTERN = Pattern.compile(
-            "([a-zA-Z_0-9]+)\\s*(>=|<=|==|>|<)\\s*(\\d+(?:\\.\\d+)?)"
-    );
+    private final List<ConditionStrategy> strategies;
+
+    private static final Pattern CONDITION_PATTERN =
+            Pattern.compile("([a-zA-Z_0-9]+)\\s*(>=|<=|==|>|<)\\s*(\\d+(?:\\.\\d+)?)");
 
     public boolean evaluate(String condition, UserState userState) {
         if (condition == null || condition.trim().isEmpty()) {
@@ -32,95 +36,19 @@ public class ConditionEvaluator {
             String operator = matcher.group(2);
             String valueStr = matcher.group(3);
 
-            // Get field value from UserState using reflection
-            Object fieldValue = getFieldValue(userState, fieldName);
-            if (fieldValue == null) {
-                log.warn("Field {} not found or null in UserState", fieldName);
-                return false;
+            // Find matching strategy
+            for (ConditionStrategy strategy : strategies) {
+                if (strategy.supports(fieldName)) {
+                    return strategy.evaluate(fieldName, operator, valueStr, userState);
+                }
             }
 
-            // Parse the threshold value
-            double threshold;
-            double actualValue;
-
-            if (fieldValue instanceof Integer) {
-                threshold = Double.parseDouble(valueStr);
-                actualValue = ((Integer) fieldValue).doubleValue();
-            } else if (fieldValue instanceof Double) {
-                threshold = Double.parseDouble(valueStr);
-                actualValue = (Double) fieldValue;
-            } else {
-                log.warn("Unsupported field type: {}", fieldValue.getClass());
-                return false;
-            }
-
-            // Evaluate condition
-            return evaluateOperator(actualValue, operator, threshold);
+            log.warn("No strategy found for field: {}", fieldName);
+            return false;
 
         } catch (Exception e) {
             log.error("Error evaluating condition: {}", condition, e);
             return false;
-        }
-    }
-
-    private Object getFieldValue(UserState userState, String fieldName) {
-        try {
-            // Map field names from condition to actual field names
-            String actualFieldName = mapFieldName(fieldName);
-            
-            Field field = UserState.class.getDeclaredField(actualFieldName);
-            field.setAccessible(true);
-            return field.get(userState);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            log.error("Error accessing field: {}", fieldName, e);
-            return null;
-        }
-    }
-
-    private String mapFieldName(String conditionFieldName) {
-        // Map condition field names to UserState field names
-        switch (conditionFieldName) {
-            case "login_count_today":
-                return "loginCountToday";
-            case "play_minutes_today":
-                return "playMinutesToday";
-            case "pvp_wins_today":
-                return "pvpWinsToday";
-            case "coop_minutes_today":
-                return "coopMinutesToday";
-            case "topup_try_today":
-                return "topupTryToday";
-            case "play_minutes_7d":
-                return "playMinutes7d";
-            case "topup_try_7d":
-                return "topupTry7d";
-            case "logins_7d":
-                return "logins7d";
-            case "login_streak_days":
-                return "loginStreakDays";
-            case "total_points":
-                // This will be handled separately as it's not in UserState
-                return null;
-            default:
-                return conditionFieldName;
-        }
-    }
-
-    private boolean evaluateOperator(double actualValue, String operator, double threshold) {
-        switch (operator) {
-            case ">=":
-                return actualValue >= threshold;
-            case "<=":
-                return actualValue <= threshold;
-            case "==":
-                return Math.abs(actualValue - threshold) < 0.0001; // Float comparison
-            case ">":
-                return actualValue > threshold;
-            case "<":
-                return actualValue < threshold;
-            default:
-                log.warn("Unsupported operator: {}", operator);
-                return false;
         }
     }
 
@@ -136,7 +64,7 @@ public class ConditionEvaluator {
             }
 
             String fieldName = matcher.group(1);
-            if (!"total_points".equals(fieldName)) {
+            if (!AppConstants.FIELD_TOTAL_POINTS.equals(fieldName)) {
                 return false;
             }
 
@@ -150,5 +78,22 @@ public class ConditionEvaluator {
             return false;
         }
     }
-}
 
+    private boolean evaluateOperator(double actualValue, String operator, double threshold) {
+        switch (operator) {
+            case AppConstants.OP_GREATER_THAN_OR_EQUAL:
+                return actualValue >= threshold;
+            case AppConstants.OP_LESS_THAN_OR_EQUAL:
+                return actualValue <= threshold;
+            case AppConstants.OP_EQUALS:
+                return Math.abs(actualValue - threshold) < 0.0001; // Float comparison
+            case AppConstants.OP_GREATER_THAN:
+                return actualValue > threshold;
+            case AppConstants.OP_LESS_THAN:
+                return actualValue < threshold;
+            default:
+                log.warn("Unsupported operator: {}", operator);
+                return false;
+        }
+    }
+}

@@ -4,6 +4,7 @@ import com.turkcell.gameplus.model.QuestAward;
 import com.turkcell.gameplus.model.User;
 import com.turkcell.gameplus.model.UserState;
 import com.turkcell.gameplus.repository.UserRepository;
+import com.turkcell.gameplus.util.AppConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -62,18 +63,18 @@ public class GamePlusOrchestrator {
 
         if (questAward != null) {
             // 3. Add points to ledger
-            pointsLedgerService.addPoints(userId, questAward.getRewardPoints(), "QUEST_REWARD",
-                    questAward.getAwardId());
+            pointsLedgerService.addPoints(userId, questAward.getRewardPoints(),
+                    AppConstants.QUALIFIER_QUEST_REWARD, questAward.getAwardId());
             log.debug("Added {} points to user: {} from quest: {}", questAward.getRewardPoints(),
                     userId, questAward.getSelectedQuestId());
 
             // 4. Send notification
-            String message =
-                    String.format("Tebrikler! '%s' görevini tamamladınız ve %d puan kazandınız!",
-                            questAward.getSelectedQuest() != null
-                                    ? questAward.getSelectedQuest().getQuestName()
-                                    : "Quest",
-                            questAward.getRewardPoints());
+            String message = String.format(
+                    "Tebrikler! '%s' görevini tamamladınız ve %d puan kazandınız!",
+                    questAward.getSelectedQuest() != null
+                            ? questAward.getSelectedQuest().getQuestName()
+                            : AppConstants.DEFAULT_QUEST_NAME,
+                    questAward.getRewardPoints());
             notificationService.sendNotification(userId, message, asOfDate);
         }
 

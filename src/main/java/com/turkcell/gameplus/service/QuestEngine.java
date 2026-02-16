@@ -9,6 +9,7 @@ import com.turkcell.gameplus.model.UserState;
 import com.turkcell.gameplus.repository.QuestAwardRepository;
 import com.turkcell.gameplus.repository.QuestRepository;
 import com.turkcell.gameplus.repository.UserRepository;
+import com.turkcell.gameplus.util.AppConstants;
 import com.turkcell.gameplus.util.ConditionEvaluator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -81,7 +82,7 @@ public class QuestEngine {
 
         // Create QuestAward
         QuestAward award = new QuestAward();
-        award.setAwardId("A-" + UUID.randomUUID().toString());
+        award.setAwardId(AppConstants.PREFIX_AWARD_ID + UUID.randomUUID().toString());
         award.setUser(user);
         award.setUserId(userId);
         award.setAsOfDate(asOfDate);

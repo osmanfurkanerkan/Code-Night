@@ -1,8 +1,8 @@
 # 🚀 Turkcell Game+ Quest League  
-### Codenight Case – Görev, Puan, Rozet ve Leaderboard Sistemi
+## Codenight Case – Görev, Puan, Rozet ve Leaderboard Sistemi
 
 Bu proje, Turkcell Game+ için geliştirilen veri tabanlı bir görev (quest) ve ödül motorudur.  
-Kullanıcı aktivitelerini okuyarak görevleri tetikler, puan kazandırır, rozet atar ve leaderboard üretir.
+Sistem; kullanıcı aktivitelerini okuyarak görevleri tetikler, puan kazandırır, rozet atar ve leaderboard üretir.
 
 ---
 
@@ -15,9 +15,25 @@ Game+ kullanıcılarının oyun içi aktivitelerine göre:
 - Rozet (Badge) atama
 - Leaderboard üretimi
 - Bildirim (Mock) oluşturma
-- Dashboard üzerinden görselleştirme
+- Web tabanlı dashboard ile sonuçları gösterme
 
-işlemlerini gerçekleştiren bir sistem geliştirmek.
+işlevlerini gerçekleştiren bir sistem geliştirmek.
+
+---
+
+# 🧠 Sistem Bileşenleri
+
+Sistem aşağıdaki temel modüllerden oluşur:
+
+- CSV tabanlı veri kaynakları
+- Kullanıcı metrik hesaplama motoru (State Engine)
+- Quest (Görev) motoru
+- Çakışma (Priority) yönetimi
+- Points Ledger (Puan Defteri)
+- Leaderboard üretimi
+- Badge (Rozet) sistemi
+- Bildirim (Mock) servisi
+- Web tabanlı Dashboard
 
 ---
 
@@ -35,27 +51,27 @@ Aktivite verileri günlük özet formatındadır.
 
 ---
 
-# 🧠 Kullanıcı State (Türetilen Metrikler)
+# 📊 Kullanıcı Metrikleri (User State)
 
-Belirli bir `as_of_date` için kullanıcı bazlı metrikler hesaplanır.
+Belirli bir `as_of_date` için aşağıdaki metrikler hesaplanır:
 
-### 📅 Bugün
+## 📅 Bugün
 - `login_count_today`
 - `play_minutes_today`
 - `pvp_wins_today`
 - `coop_minutes_today`
 - `topup_try_today`
 
-### 📆 Son 7 Gün
+## 📆 Son 7 Gün
 - `play_minutes_7d`
 - `topup_try_7d`
 - `logins_7d`
 
-### 🔥 Streak
+## 🔥 Streak
 - `login_streak_days`  
-  (Ardışık günlerde login ≥ 1 kontrol edilir)
+  (Ardışık günlerde login ≥ 1 kontrol edilir.)
 
-Bu çıktılar `user_state` olarak tutulur.
+Bu değerler `user_state` çıktısı olarak üretilir.
 
 ---
 
@@ -63,7 +79,7 @@ Bu çıktılar `user_state` olarak tutulur.
 
 Görevler veri tabanlıdır (`quests.csv`).
 
-Her görev:
+Her görev şu alanlara sahiptir:
 
 - `quest_id`
 - `quest_name`
@@ -76,28 +92,26 @@ Her görev:
 Sistem:
 
 1. Aktif görevleri filtreler  
-2. Koşulu sağlayan görevleri belirler  
+2. Koşulları sağlayan görevleri belirler  
 3. Çakışma kuralını uygular  
 
 ---
 
 # ⚖️ Çakışma Yönetimi (Tek Ödül Kuralı)
 
-Aynı gün birden fazla görev tetiklenirse:
+Aynı gün bir kullanıcı için birden fazla görev tetiklenirse:
 
-- `priority` değeri en küçük olan görev seçilir (1 en yüksek)
-- Diğerleri suppressed edilir
+- Priority değeri en küçük olan görev seçilir (1 en yüksek öncelik)
+- Diğer görevler suppressed olarak işaretlenir
 - Kullanıcıya yalnızca seçilen görevin puanı eklenir
 
-Çıktı:
-
-- `quest_awards`
+Üretilen çıktı: `quest_awards`
 
 ---
 
-# 📒 Points Ledger
+# 📒 Points Ledger (Puan Defteri)
 
-Toplam puan doğrudan kullanıcıya yazılmaz.
+Toplam puan doğrudan kullanıcı tablosuna yazılmaz.
 
 Her puan hareketi `points_ledger` tablosuna kaydedilir:
 
@@ -126,10 +140,10 @@ Belirli bir tarih için leaderboard üretilir:
 - `user_id`
 - `total_points`
 
-Sıralama:
+Sıralama kriterleri:
 
-1. `total_points` (DESC)
-2. `user_id` (ASC)
+1. `total_points` (Azalan)
+2. `user_id` (Alfabetik)
 
 ---
 
@@ -147,7 +161,7 @@ Koşul sağlandığında `badge_awards` çıktısı üretilir.
 
 # 🔔 Bildirim Sistemi (Mock)
 
-Görev kazanıldığında kullanıcıya bildirim üretilir:
+Görev kazanıldığında kullanıcıya bildirim oluşturulur:
 
 - `notification_id`
 - `user_id`
@@ -159,7 +173,7 @@ Görev kazanıldığında kullanıcıya bildirim üretilir:
 
 # 🖥️ Dashboard
 
-Web tabanlı arayüz:
+Web arayüzünde:
 
 - Kullanıcı listesi ve toplam puan
 - Top 10 leaderboard
@@ -168,6 +182,8 @@ Web tabanlı arayüz:
 - Kazanılan rozetler
 - Bildirim kayıtları
 
+gösterilir.
+
 ---
 
 # 🏗️ Teknik Yaklaşım
@@ -175,13 +191,13 @@ Web tabanlı arayüz:
 Bu proje aşağıdaki prensiplerle geliştirilmiştir:
 
 - Veri odaklı tasarım
-- Rule engine mantığı
-- Ledger pattern
+- Rule Engine yaklaşımı
+- Ledger pattern kullanımı
 - Deterministic priority resolution
-- Modüler ve genişletilebilir yapı
+- Modüler ve genişletilebilir mimari
 
 ---
 
-# 👥 Takım Çalışması
+# 👥 Takım
 
 Bu proje Codenight kapsamında ekip çalışması olarak geliştirilmiştir.

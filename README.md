@@ -1,203 +1,55 @@
-# 🚀 Turkcell Game+ Quest League  
-## Codenight Case – Görev, Puan, Rozet ve Leaderboard Sistemi
+# Game+ Gamification & Rule Engine 🏆
+**Turkcell Code Night Hackathon — 2nd Place Winner** `[ ⏱️ BUILT FROM SCRATCH IN 10 HOURS ]` `[ ☕ JAVA 21 / SPRING BOOT 3 ]`
 
-Bu proje, Turkcell Game+ için geliştirilen veri tabanlı bir görev (quest) ve ödül motorudur.  
-Sistem; kullanıcı aktivitelerini okuyarak görevleri tetikler, puan kazandırır, rozet atar ve leaderboard üretir.
-
----
-
-## 🎯 Amaç
-
-Game+ kullanıcılarının oyun içi aktivitelerine göre:
-
-- Görev tamamlama
-- Puan kazanımı
-- Rozet (Badge) atama
-- Leaderboard üretimi
-- Bildirim (Mock) oluşturma
-- Web tabanlı dashboard ile sonuçları gösterme
-
-işlevlerini gerçekleştiren bir sistem geliştirmek.
+An event-driven, deterministic gamification engine built for Turkcell's cloud gaming platform (*Game+*). Designed to ingest raw daily telemetry, resolve complex quest conditions via dynamic rule strategies, and maintain an immutable ledger of user points.
 
 ---
 
-# 🧠 Sistem Bileşenleri
+## ⚡ The 10-Hour "Ruthless Pragmatism" Philosophy
 
-Sistem aşağıdaki temel modüllerden oluşur:
+In a strict 10-hour hackathon timebox, over-engineering kills the MVP. This repository demonstrates high-speed, pragmatic engineering:
 
-- CSV tabanlı veri kaynakları
-- Kullanıcı metrik hesaplama motoru (State Engine)
-- Quest (Görev) motoru
-- Çakışma (Priority) yönetimi
-- Points Ledger (Puan Defteri)
-- Leaderboard üretimi
-- Badge (Rozet) sistemi
-- Bildirim (Mock) servisi
-- Web tabanlı Dashboard
+1. **Zero-Build Native Frontend:** Bypassed Node.js/React compilation overhead entirely. Built a single-page Vanilla JS + CSS3 responsive dashboard served directly from Spring MVC's native `/static` asset directory (`http://localhost:8080/dashboard.html`).
+2. **Embedded Flyway Migrations:** Automated DDL executions so the hackathon jury could pull the image, spin up PostgreSQL, and fire the test suite with zero manual `CREATE TABLE` friction.
 
 ---
 
-# 📂 Veri Kaynakları
+## 🏛️ Architectural Masterpieces
 
-Sistem aşağıdaki CSV dosyalarından veri okur:
+### 1. The Append-Only Ledger Pattern (`/model/PointsLedgerEntry.java`)
+To prevent race conditions and un-auditable database states, user points are **never mutated directly** via `UPDATE` queries. Every point gain is registered as an immutable delta entry (`+150`). Total user balances are strictly derived via `SUM(points_delta)`. 
+*(This guarantees 100% financial auditability and mimics modern Fintech ledger architectures).*
 
-- `users.csv`
-- `games.csv`
-- `activity_events.csv`
-- `quests.csv`
-- `badges.csv`
+### 2. Strategy-Driven Rule Engine (`/service/strategy`)
+Quest criteria are expressed as raw strings inside the seed files (e.g., `login_streak_days >= 3`). The `ConditionEvaluator` dynamically parses these expressions at runtime using RegEx and passes the payload to concrete implementations of `ConditionStrategy`, strictly adhering to the **Open/Closed Principle (OCP)**.
 
-Aktivite verileri günlük özet formatındadır.
-
----
-
-# 📊 Kullanıcı Metrikleri (User State)
-
-Belirli bir `as_of_date` için aşağıdaki metrikler hesaplanır:
-
-## 📅 Bugün
-- `login_count_today`
-- `play_minutes_today`
-- `pvp_wins_today`
-- `coop_minutes_today`
-- `topup_try_today`
-
-## 📆 Son 7 Gün
-- `play_minutes_7d`
-- `topup_try_7d`
-- `logins_7d`
-
-## 🔥 Streak
-- `login_streak_days`  
-  (Ardışık günlerde login ≥ 1 kontrol edilir.)
-
-Bu değerler `user_state` çıktısı olarak üretilir.
+### 3. ACID Conflict Resolution
+When a telemetry batch triggers multiple conflicting quests for a single user on the same day, the engine passes the array through a deterministic priority matrix, awards the highest-tier quest, and flags the inferiors as `suppressed` within a single transaction roll.
 
 ---
 
-# 🎮 Quest Motoru
+## 🚀 Running the Engine Locally
 
-Görevler veri tabanlıdır (`quests.csv`).
+### Prerequisites
+* Java 21+
+* A running **PostgreSQL** instance at `localhost:5432/gameplus` *(User: `gameplus_user`, Pass: `gameplus_pass`)*
 
-Her görev şu alanlara sahiptir:
+```bash
+# 1. Boot the application (Flyway automatically establishes the schema)
+./mvnw spring-boot:run
+Once initialized, open your browser and navigate to the monitoring hub:
 
-- `quest_id`
-- `quest_name`
-- `quest_type` (DAILY, WEEKLY, STREAK)
-- `condition`
-- `reward_points`
-- `priority`
-- `is_active`
+👉 http://localhost:8080/dashboard.html
 
-Sistem:
+Triggering the Simulation via CLI
+To push a mock daily telemetry dump into the State Machine:
 
-1. Aktif görevleri filtreler  
-2. Koşulları sağlayan görevleri belirler  
-3. Çakışma kuralını uygular  
+Bash
+# Ingest raw CSV datasets into the staging tables
+curl -X POST "http://localhost:8080/api/import"
 
----
-
-# ⚖️ Çakışma Yönetimi (Tek Ödül Kuralı)
-
-Aynı gün bir kullanıcı için birden fazla görev tetiklenirse:
-
-- Priority değeri en küçük olan görev seçilir (1 en yüksek öncelik)
-- Diğer görevler suppressed olarak işaretlenir
-- Kullanıcıya yalnızca seçilen görevin puanı eklenir
-
-Üretilen çıktı: `quest_awards`
-
----
-
-# 📒 Points Ledger (Puan Defteri)
-
-Toplam puan doğrudan kullanıcı tablosuna yazılmaz.
-
-Her puan hareketi `points_ledger` tablosuna kaydedilir:
-
-- `ledger_id`
-- `user_id`
-- `points_delta`
-- `source`
-- `source_ref`
-- `created_at`
-
-Toplam puan:
-
-```text
-SUM(points_delta)
-```
-
-ile hesaplanır.
-
----
-
-# 🏆 Leaderboard
-
-Belirli bir tarih için leaderboard üretilir:
-
-- `rank`
-- `user_id`
-- `total_points`
-
-Sıralama kriterleri:
-
-1. `total_points` (Azalan)
-2. `user_id` (Alfabetik)
-
----
-
-# 🥇 Badge Sistemi
-
-Rozetler eşik bazlıdır:
-
-- ≥ 300 → Bronz
-- ≥ 800 → Gümüş
-- ≥ 1500 → Altın
-
-Koşul sağlandığında `badge_awards` çıktısı üretilir.
-
----
-
-# 🔔 Bildirim Sistemi (Mock)
-
-Görev kazanıldığında kullanıcıya bildirim oluşturulur:
-
-- `notification_id`
-- `user_id`
-- `channel` (BiP)
-- `message`
-- `sent_at`
-
----
-
-# 🖥️ Dashboard
-
-Web arayüzünde:
-
-- Kullanıcı listesi ve toplam puan
-- Top 10 leaderboard
-- Kullanıcı detay metrikleri
-- Triggered / Selected / Suppressed quests
-- Kazanılan rozetler
-- Bildirim kayıtları
-
-gösterilir.
-
----
-
-# 🏗️ Teknik Yaklaşım
-
-Bu proje aşağıdaki prensiplerle geliştirilmiştir:
-
-- Veri odaklı tasarım
-- Rule Engine yaklaşımı
-- Ledger pattern kullanımı
-- Deterministic priority resolution
-- Modüler ve genişletilebilir mimari
-
----
-
-# 👥 Takım
-
-Bu proje Codenight kapsamında ekip çalışması olarak geliştirilmiştir.
+# Execute the Rule Engine for a target simulation date
+curl -X GET "http://localhost:8080/api/process?date=2026-03-12"
+📦 System Telemetry Flow
+Plaintext
+[Raw Telemetry CSVs] ──► (ETL Parser) ──► [User State Matrix] ──► (Strategy Rule Engine) ──► [Append-Only Ledger]
